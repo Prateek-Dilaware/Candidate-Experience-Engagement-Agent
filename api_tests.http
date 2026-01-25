@@ -1,0 +1,152 @@
+### Candidate Engagement API - REST Client Tests
+### Base URL
+@baseUrl = http://localhost:8080
+
+### Health Check
+GET {{baseUrl}}/health
+
+###
+
+### Test 1: Update Stage - Create and Screen
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-001",
+  "jobId": "JOB-101",
+  "newStage": "SCREENED"
+}
+
+###
+
+### Test 2: Update Stage - Schedule Interview
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-001",
+  "jobId": "JOB-101",
+  "newStage": "INTERVIEW_SCHEDULED"
+}
+
+###
+
+### Test 3: Update Stage - Interviewed
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-001",
+  "jobId": "JOB-101",
+  "newStage": "INTERVIEWED"
+}
+
+###
+
+### Test 4: Update Stage - Offered
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-001",
+  "jobId": "JOB-101",
+  "newStage": "OFFERED"
+}
+
+###
+
+### Test 5: Invalid Transition (Should Fail)
+# This should return 400 error - trying to skip stages
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-002",
+  "jobId": "JOB-102",
+  "newStage": "OFFERED"
+}
+
+###
+
+### Test 6: Move to Closed State
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-003",
+  "jobId": "JOB-103",
+  "newStage": "CLOSED_REJECTED"
+}
+
+###
+
+### Test 7: Complete Journey for CAND-004
+# Step 1: Screened
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-004",
+  "jobId": "JOB-104",
+  "newStage": "SCREENED"
+}
+
+###
+
+# Step 2: Interview Scheduled
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-004",
+  "jobId": "JOB-104",
+  "newStage": "INTERVIEW_SCHEDULED"
+}
+
+###
+
+# Step 3: Interviewed
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-004",
+  "jobId": "JOB-104",
+  "newStage": "INTERVIEWED"
+}
+
+###
+
+# Step 4: Offered
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-004",
+  "jobId": "JOB-104",
+  "newStage": "OFFERED"
+}
+
+###
+
+# Step 5: Offer Accepted
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-004",
+  "jobId": "JOB-104",
+  "newStage": "OFFER_ACCEPTED"
+}
+
+###
+
+# Step 6: Onboarding
+POST {{baseUrl}}/hr/engagement/stage/update
+Content-Type: application/json
+
+{
+  "candidateId": "CAND-004",
+  "jobId": "JOB-104",
+  "newStage": "ONBOARDING"
+}
