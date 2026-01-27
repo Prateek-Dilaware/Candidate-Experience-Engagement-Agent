@@ -48,7 +48,7 @@ Stage meanings:
 - SCREENED: Application reviewed and moving forward
 - INTERVIEW_SCHEDULED: Interview is being scheduled
 - INTERVIEWED: Thank them, feedback in progress
-- OFFERED: Congratulate, offer coming soon
+- OFFERED: Congratulate , candidate is been selected 
 - REJECTED: Polite rejection
 
 Rules:
