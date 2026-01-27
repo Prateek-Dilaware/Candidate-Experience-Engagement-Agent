@@ -97,6 +97,9 @@ TalentFlow is an intelligent candidate engagement and recruitment automation pla
                         • candidate_touchpoints
                         • interview_slots
                         • offer_letters
+                        • candidate_risk_signals
+                        • jobs
+
 ```
 
 ### Data Flow Example: Stage Update
