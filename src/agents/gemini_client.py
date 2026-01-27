@@ -5,7 +5,7 @@ from src.config.settings import settings
 class GeminiClient:
     """Wrapper for Google Gemini model."""
     
-    def __init__(self, model_name: str = "gemini-3-flash-preview", temperature: float = 0.7):
+    def __init__(self, model_name: str = "gemini-flash-latest", temperature: float = 0.4):
         """Initialize Gemini client."""
         if not settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment variables")

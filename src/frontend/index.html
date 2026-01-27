@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TalentFlow | Dynamic Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body onload="initDashboard()">
+    <nav>
+        <h1>TALENTFLOW</h1>
+        <ul>
+            <li><a href="/hr/engagement/" class="active">🏠 Dashboard</a></li>
+            <li><a href="/static/visualizer.html">⚡ API Visualizer</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <!-- Candidate Selection Header -->
+        <div class="header">
+            <div>
+                <h2 id="dashboard-title">Candidate Overview</h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">Select a candidate to view real-time DB signals
+                </p>
+            </div>
+
+            <div
+                style="display: flex; gap: 10px; align-items: center; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                <label style="font-weight: 700; font-size: 0.7rem; color: var(--primary-purple);">ACTIVE
+                    CANDIDATE:</label>
+                <select id="candidate-selector" onchange="loadDashboardData(this.value)"
+                    style="width: 200px; border: none; font-weight: 600; color: var(--primary-blue); cursor: pointer;">
+                    <!-- Dynamically populated from script.js -->
+                </select>
+                <button onclick="refreshCurrent()"
+                    style="width: auto; padding: 5px 15px; font-size: 0.7rem;">REFRESH</button>
+            </div>
+        </div>
+
+        <!-- Dynamic Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Current Stage</h3>
+                <p id="stat-stage" style="font-size: 1.2rem; color: var(--primary-blue);">LOADING...</p>
+            </div>
+            <div class="stat-card" style="border-left-color: var(--primary-purple);">
+                <h3>Interactions</h3>
+                <p id="stat-int">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Preferred Channel</h3>
+                <p id="stat-channel" style="font-size: 1.2rem; text-transform: capitalize;">--</p>
+            </div>
+            <div class="stat-card" id="risk-card" style="border-left-color: #10b981;">
+                <h3>Risk Score</h3>
+                <p id="stat-risk">0</p>
+            </div>
+        </div>
+
+        <!-- Activity Feed Section -->
+        <div class="api-section" style="border-top: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin-bottom: 0;">Live Activity Timeline</h3>
+                <span id="last-updated" style="font-size: 0.7rem; color: var(--text-muted);">Last updated: Just
+                    now</span>
+            </div>
+
+            <table id="activity-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Event Type</th>
+                        <th>Channel</th>
+                        <th>Message Preview</th>
+                    </tr>
+                </thead>
+                <tbody id="activity-body">
+                    <tr>
+                        <td colspan="4" style="text-align:center; padding: 40px;">Select a candidate to load data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

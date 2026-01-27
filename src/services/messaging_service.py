@@ -2,122 +2,154 @@ from datetime import datetime
 import asyncio
 from typing import Optional
 from src.db import get_supabase
-from src.config import Channel, TouchpointType, DeliveryStatus, MessageType, CandidateStage
+from src.config import Channel, DeliveryStatus, MessageType, CandidateStage
 from src.agents.message_personalizer import MessagePersonalizer
+
 
 class MessagingService:
     """Service for sending messages across multiple channels."""
-    
+
     def __init__(self):
         self.supabase = get_supabase()
         self.personalizer = MessagePersonalizer()
-    
+
     def _determine_channel(
-        self, 
-        preferred_channel: str, 
+        self,
+        preferred_channel: str,
         message_type: MessageType,
         override: Optional[Channel] = None
     ) -> Channel:
-        """
-        Determine which channel to use based on rules.
-        """
         if override:
             return override
-        
+
         if preferred_channel:
             return Channel(preferred_channel)
-        
-        # Default channel selection based on message type
+
         if message_type in [MessageType.REMINDER_24H, MessageType.REMINDER_1H]:
             return Channel.SMS
         elif message_type == MessageType.OFFER_SENT:
             return Channel.EMAIL
-        
+
         return Channel.EMAIL
-    
+
+    async def _get_candidate_email(self, candidate_id: str) -> str:
+        """Fetch candidate email from candidate_profiles."""
+        response = (
+            self.supabase
+            .table("candidate_profiles")
+            .select("email")
+            .eq("candidate_id", candidate_id)
+            .execute()
+        )
+
+        if not response.data:
+            raise Exception("Candidate email not found")
+
+        return response.data[0]["email"]
+
     async def send_message(
         self,
         candidate_id: str,
+        job_id: str,
+        stage: CandidateStage,
         message: str,
-        channel: Channel,
+        preferred_channel: str,
         message_type: MessageType,
-        metadata: Optional[dict] = None
+        channel_override: Optional[Channel] = None,
+        metadata: Optional[dict] = None,
+        to_email: Optional[str] = None
     ) -> dict:
-        """
-        Send message to candidate.
-        Uses SMTP for emails, mocks others.
-        Records touchpoint in database.
-        """
+        """Send message and record touchpoint."""
         try:
+            channel = self._determine_channel(
+                preferred_channel,
+                message_type,
+                channel_override
+            )
+
+            target_email = to_email or await self._get_candidate_email(candidate_id)
+
             sent_successfully = False
             error_details = None
 
-            # 1. Send via Real Channel
+            # SEND
             if channel == Channel.EMAIL:
                 try:
-                    # Run SMTP in a separate thread to avoid blocking event loop
                     loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(None, self._send_email_smtp, candidate_id, message)
-                    
-                    print(f"📧 [SMTP] Sent email to {candidate_id}")
+                    await loop.run_in_executor(
+                        None, self._send_email_smtp, target_email, message
+                    )
                     sent_successfully = True
                 except Exception as e:
-                    print(f"❌ [SMTP] Failed to send email: {e}")
                     error_details = str(e)
-                    # Don't raise yet, we still want to record the attempt
+            elif channel == Channel.SMS:
+                self._mock_sms_delivery(target_email, message)
+                sent_successfully = True
+            elif channel == Channel.WHATSAPP:
+                self._mock_whatsapp_delivery(target_email, message)
+                sent_successfully = True
             else:
-                # Mock sending for other channels
-                print(f"[{channel.value.upper()}] Sending to {candidate_id}: {message[:50]}...")
                 sent_successfully = True
 
-            # 2. Record touchpoint
+            # RECORD TOUCHPOINT
             touchpoint_data = {
                 "candidate_id": candidate_id,
-                "type": TouchpointType.STATUS_UPDATE.value,
+                "job_id": job_id,
+                "stage": stage.value,
+                "type": "status_update" if message_type == MessageType.STAGE_UPDATE else "notification",
                 "channel": channel.value,
                 "message": message,
                 "sentiment": None,
-                "delivery_status": DeliveryStatus.SENT.value if sent_successfully else DeliveryStatus.FAILED.value,
+                "delivery_status": (
+                    DeliveryStatus.SENT.value
+                    if sent_successfully
+                    else DeliveryStatus.FAILED.value
+                ),
                 "metadata": metadata or {},
                 "created_at": datetime.utcnow().isoformat()
             }
-            
-            if error_details:
-                touchpoint_data["metadata"]["error"] = error_details
-            
-            response = self.supabase.table("candidate_touchpoints").insert(
-                touchpoint_data
-            ).execute()
-            
-            if response.data and len(response.data) > 0:
+
+            response = (
+                self.supabase
+                .table("candidate_touchpoints")
+                .insert(touchpoint_data)
+                .execute()
+            )
+
+            if response.data:
                 result = {
                     "sent": sent_successfully,
                     "channel": channel.value,
                     "touchpoint_id": response.data[0]["id"],
-                    "message": message
+                    "message": message,
                 }
-                if not sent_successfully:
+                if error_details:
                     result["error"] = error_details
                 return result
-            
+
             raise Exception("Failed to record touchpoint")
-            
+
         except Exception as e:
-            # If recording failed, we still want to surface that
             raise Exception(f"Error sending message: {str(e)}")
 
-    def _send_email_smtp(self, candidate_id: str, body: str):
+    def _mock_sms_delivery(self, to: str, message: str):
+        """Mock SMS delivery by writing to a text file."""
+        with open("mock_sms.txt", "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().isoformat()}] TO: {to}\nMESSAGE: {message}\n{'-'*30}\n")
+
+    def _mock_whatsapp_delivery(self, to: str, message: str):
+        """Mock WhatsApp delivery by writing to a text file."""
+        with open("mock_whatsapp.txt", "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().isoformat()}] TO: {to}\nMESSAGE: {message}\n{'-'*30}\n")
+
+    def _send_email_smtp(self, to_email: str, body: str):
         """Send email using SMTP."""
         import smtplib
         from email.mime.text import MIMEText
         from src.config.settings import settings
-        
-        # TODO: Get actual candidate email from DB
-        # For now, using a test email or checking if candidate_id looks like an email
-        to_email = candidate_id if "@" in candidate_id else "govindkushwaha6263@gmail.com" # Fallback test email
-        
+
         msg = MIMEText(body)
-        msg["Subject"] = "Update from TechCorp" # TODO: Make dynamic
+        msg["Subject"] = "Update on your application"
         msg["From"] = settings.smtp_email
         msg["To"] = to_email
 
@@ -125,49 +157,62 @@ class MessagingService:
             server.starttls()
             server.login(settings.smtp_email, settings.smtp_password)
             server.sendmail(settings.smtp_email, to_email, msg.as_string())
-    
+
     async def send_stage_update_notification(
         self,
         candidate_id: str,
-        message: Optional[str] = None,
-        preferred_channel: str = "email",
+        job_id: str,
+        new_stage: CandidateStage,
+        preferred_channel: str,
         channel_override: Optional[Channel] = None,
         metadata: Optional[dict] = None
     ) -> dict:
-        """
-        Send stage update notification to candidate.
-        If message is not provided, generates one using AI.
-        """
-        
-        # If message not provided, generate with AI (requires metadata)
-        if not message and metadata and "stage_transition" in metadata:
-            new_stage_val = metadata["stage_transition"]["to"]
-            new_stage = CandidateStage(new_stage_val)
-            
-            # TODO: Fetch candidate name from DB ideally
-            candidate_name = "Candidate" 
-            role_title = "Software Engineer"
-            
-            try:
-                message = self.personalizer.generate_stage_update_message(
-                    candidate_name=candidate_name,
-                    role_title=role_title,
-                    new_stage=new_stage
-                )
-            except Exception as e:
-                print(f"⚠️ AI Generation Failed: {e}. Falling back to default.")
-                message = f"Update: You have moved to stage {new_stage_val}."
+        """Send stage update notification (AI or fallback)."""
 
+        # Decide channel FIRST (important)
         channel = self._determine_channel(
             preferred_channel,
             MessageType.STAGE_UPDATE,
             channel_override
         )
-        
+
+        # Fetch candidate name
+        profile_resp = (
+            self.supabase
+            .table("candidate_profiles")
+            .select("full_name")
+            .eq("candidate_id", candidate_id)
+            .execute()
+        )
+        candidate_name = profile_resp.data[0]["full_name"] if profile_resp.data else "Candidate"
+
+        # Fetch job title
+        role_resp = (
+            self.supabase
+            .table("jobs")
+            .select("title")
+            .eq("job_id", job_id)
+            .execute()
+        )
+        role_title = role_resp.data[0]["title"] if role_resp.data else "Software Engineer"
+
+        try:
+            message = self.personalizer.generate_stage_update_message(
+                candidate_name=candidate_name,
+                role_title=role_title,
+                new_stage=new_stage,
+                channel=channel
+            )
+        except Exception:
+            message = f"Update: You have moved to stage {new_stage.value}."
+
         return await self.send_message(
             candidate_id=candidate_id,
-            message=message or "Status Update",
-            channel=channel,
+            job_id=job_id,
+            stage=new_stage,
+            message=message,
+            preferred_channel=preferred_channel,
             message_type=MessageType.STAGE_UPDATE,
+            channel_override=channel_override,
             metadata=metadata
         )

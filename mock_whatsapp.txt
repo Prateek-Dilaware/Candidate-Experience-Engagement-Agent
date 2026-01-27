@@ -1,0 +1,3 @@
+[2026-01-27T14:12:12.090818] TO: whatsapp_recipient@test.com
+MESSAGE: This is a test WhatsApp message.
+------------------------------

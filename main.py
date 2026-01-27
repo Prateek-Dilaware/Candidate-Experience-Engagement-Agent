@@ -1,8 +1,14 @@
 """FastAPI application entry point."""
+import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse,RedirectResponse
 from src.config.settings import settings
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+frontend_path = os.path.join(current_dir, "src", "frontend")
 
 # Create FastAPI app
 app = FastAPI(
@@ -20,16 +26,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
 @app.get("/")
 async def root():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "service": "Candidate Engagement Agent",
-        "version": "1.0.0"
-    }
-
+    return RedirectResponse(url="/hr/engagement/")
 
 @app.get("/health")
 async def health_check():
@@ -44,6 +46,12 @@ async def health_check():
 # Import and include routers
 from src.api.routes.engagement import router as engagement_router
 app.include_router(engagement_router, prefix="/hr/engagement", tags=["engagement"])
+
+
+@app.get("/hr/engagement/")
+async def engagement_portal():
+    """Serves the main engagement portal page."""
+    return FileResponse(os.path.join(frontend_path, 'index.html'))
 
 
 if __name__ == "__main__":

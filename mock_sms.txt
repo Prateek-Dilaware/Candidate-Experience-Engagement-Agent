@@ -1,0 +1,6 @@
+[2026-01-27T14:11:15.563025] TO: sms_recipient@test.com
+MESSAGE: This is a test SMS message.
+------------------------------
+[2026-01-27T14:12:09.588132] TO: sms_recipient@test.com
+MESSAGE: This is a test SMS message.
+------------------------------
