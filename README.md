@@ -1,4 +1,4 @@
-# 🚀 TalentFlow: AI-Powered Candidate Engagement System
+# AI-Powered Candidate Engagement System
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.128+-green.svg)](https://fastapi.tiangolo.com/)
@@ -6,21 +6,6 @@
 
 TalentFlow is an intelligent candidate engagement and recruitment automation platform that leverages AI (Google Gemini) and workflow orchestration (LangGraph) to streamline the hiring process. It provides multi-channel communication, automated messaging, risk evaluation, and comprehensive candidate tracking.
 
----
-
-## 📋 Table of Contents
-
-- [Key Features](#-key-features)
-- [Tech Stack](#-tech-stack)
-- [Project Architecture](#-project-architecture)
-- [Getting Started](#-getting-started)
-- [API Reference](#-api-reference)
-- [Database Schema](#-database-schema)
-- [Project Structure](#-project-structure)
-- [How It Works](#-how-it-works)
-- [Development Guide](#-development-guide)
-
----
 
 ## ✨ Key Features
 
@@ -345,9 +330,9 @@ POST /interview/propose-slots
 {
   "status": "proposed",
   "slots": [
-    "2026-02-01T10:00:00Z",
-    "2026-02-01T14:00:00Z",
-    "2026-02-01T16:00:00Z"
+    "10:00 - 12:00",
+    "15:00 - 17:00",
+    "18:00 - 20:00"
   ]
 }
 ```
@@ -361,7 +346,7 @@ POST /interview/confirm
 {
   "candidateId": "CAND001",
   "jobId": "JOB001",
-  "chosenSlot": "2026-02-01T10:00:00Z"
+  "chosenSlot": "15:00 - 17:00"
 }
 ```
 
