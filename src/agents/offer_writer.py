@@ -32,28 +32,27 @@ class OfferWriter:
         """
 
         template = """
-You are an HR Manager at {company_name}.
-Write a formal employment offer letter.
 
-Candidate: {candidate_name}
+You are an HR recruiter at {company_name}.
+
+Write a short, professional offer letter email.
+
+Candidate Name: {candidate_name}
 Role: {role_title}
 Joining Date: {joining_date}
 
-Structure:
-1. Header with Date
-2. Salutation
-3. Opening (pleasure to offer)
-4. Role & Reporting
-5. Joining Date clearly mentioned
-6. Benefits Summary (standard benefits only)
-7. Next Steps (sign & respond)
-8. Professional Closing
-
 Rules:
-- Return markdown content only.
-- Formal and professional tone.
-- No emojis.
+- This email itself IS the full offer letter.
+- Do NOT mention any separate documents, attachments, or future packages.
+- Do NOT mention compensation or salary.
+- Do NOT use placeholders like [HR Manager], [Address], or [Location].
+- Keep it under 150 words.
+- Use a warm and professional tone.
+- Start with: "Dear {candidate_name},"
+- Clearly ask the candidate to reply to this email to accept the offer.
+- End with: "Regards, {company_name} HR Team"
 """
+
 
         prompt = ChatPromptTemplate.from_template(template)
         chain = prompt | self.structured_llm

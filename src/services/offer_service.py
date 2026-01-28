@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from src.db import get_supabase
-from src.config import OfferStatus
+from src.config import OfferStatus, CandidateStage, MessageType, Channel
 from src.agents.offer_writer import OfferWriter
+from src.services.messaging_service import MessagingService
 
 
 class OfferService:
@@ -12,6 +13,7 @@ class OfferService:
     def __init__(self):
         self.supabase = get_supabase()
         self.offer_writer = OfferWriter()
+        self.messaging_service = MessagingService()  # ✅ Added
 
     async def generate_offer_letter(
         self,
@@ -19,7 +21,7 @@ class OfferService:
         job_id: str,
         joining_date: str
     ) -> dict:
-        """Generate and store offer letter using AI."""
+        """Generate, store, and send offer letter using AI."""
         try:
             # Fetch candidate name
             profile_resp = (
@@ -79,6 +81,17 @@ class OfferService:
 
             if response.data:
                 offer = response.data[0]
+
+                # ✅ SEND OFFER VIA MessagingService
+                await self.messaging_service.send_message(
+                    candidate_id=candidate_id,
+                    job_id=job_id,
+                    stage=CandidateStage.OFFERED,
+                    message=offer_text,
+                    preferred_channel=Channel.EMAIL.value,
+                    message_type=MessageType.OFFER_SENT
+                )
+
                 return {
                     "offer_id": offer["id"],
                     "status": offer["status"],
