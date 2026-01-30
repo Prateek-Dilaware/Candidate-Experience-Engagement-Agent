@@ -52,3 +52,8 @@ logs/
 # Temporary files
 *.tmp
 temp/
+
+
+# Google Calendar
+credentials.json
+token.json
