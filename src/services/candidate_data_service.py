@@ -1,6 +1,7 @@
 """Candidate service - Manages candidate profiles and job information."""
 from typing import Optional, Dict
 from src.db import get_supabase
+from src.config.constants import Channel
 
 
 class CandidateDataService:
@@ -15,7 +16,7 @@ class CandidateDataService:
             response = (
                 self.supabase
                 .table("candidate_profiles")
-                .select("candidate_id, full_name, email, created_at")
+                .select("candidate_id, full_name, email, whatsapp_number, preferred_channel, created_at")
                 .eq("candidate_id", candidate_id)
                 .execute()
             )
@@ -31,7 +32,7 @@ class CandidateDataService:
             response = (
                 self.supabase
                 .table("jobs")
-                .select("job_id, title, interviewer_email, created_at")
+                .select("job_id, title, interviewer_email, ctc, created_at")
                 .eq("job_id", job_id)
                 .execute()
             )
@@ -60,11 +61,25 @@ class CandidateDataService:
             return job["title"]
         return "Software Engineer"
 
+    async def get_candidate_whatsapp_number(self, candidate_id: str) -> Optional[str]:
+        """Get candidate's WhatsApp number."""
+        profile = await self.get_candidate_profile(candidate_id)
+        return profile.get("whatsapp_number") if profile else None
+
+    async def get_candidate_preferred_channel(self, candidate_id: str) -> Channel:
+        """Get candidate's preferred communication channel."""
+        profile = await self.get_candidate_profile(candidate_id)
+        if profile and profile.get("preferred_channel"):
+            return Channel(profile["preferred_channel"])
+        return Channel.EMAIL
+
     async def create_candidate_profile(
         self,
         candidate_id: str,
         full_name: str,
-        email: str
+        email: str,
+        whatsapp_number: Optional[str] = None,
+        preferred_channel: Channel = Channel.EMAIL
     ) -> Dict:
         """Create a new candidate profile."""
         try:
@@ -72,7 +87,13 @@ class CandidateDataService:
                 "candidate_id": candidate_id,
                 "full_name": full_name,
                 "email": email,
+                "preferred_channel": preferred_channel.value,
             }
+
+            if whatsapp_number:
+                if not whatsapp_number.isdigit() or len(whatsapp_number) != 10:
+                    raise Exception("whatsapp_number must be exactly 10 digits")
+                data["whatsapp_number"] = whatsapp_number
 
             response = (
                 self.supabase
@@ -93,7 +114,8 @@ class CandidateDataService:
         self,
         job_id: str,
         title: str,
-        interviewer_email: str
+        interviewer_email: str,
+        ctc: Optional[float] = None
     ) -> Dict:
         """Create a new job."""
         try:
@@ -102,6 +124,9 @@ class CandidateDataService:
                 "title": title,
                 "interviewer_email": interviewer_email,
             }
+
+            if ctc is not None:
+                data["ctc"] = ctc
 
             response = (
                 self.supabase

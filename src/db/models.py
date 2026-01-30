@@ -17,6 +17,8 @@ class CandidateProfile(BaseModel):
     candidate_id: str
     full_name: str
     email: EmailStr
+    whatsapp_number: Optional[str] = None
+    preferred_channel: Channel = Channel.EMAIL
     created_at: Optional[datetime] = None
 
 
@@ -24,6 +26,7 @@ class Job(BaseModel):
     job_id: str
     title: str
     interviewer_email: EmailStr
+    ctc: Optional[float] = None
     created_at: Optional[datetime] = None
 
 
@@ -68,8 +71,8 @@ class InterviewSlot(BaseModel):
     candidate_id: str
     job_id: str
     interviewer_email: EmailStr
-    proposed_slots: List[str]  # ['10:00-12:00','15:00-17:00','18:00-20:00']
-    chosen_slot: Optional[str] = None
+    proposed_slots: List[datetime]  # Array of timestamp values
+    chosen_slot: Optional[datetime] = None
     meeting_link: Optional[str] = None
     status: InterviewStatus = InterviewStatus.PROPOSED
     created_at: Optional[datetime] = None

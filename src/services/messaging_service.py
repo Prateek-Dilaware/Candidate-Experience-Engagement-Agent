@@ -2,7 +2,7 @@ from datetime import datetime
 import asyncio
 from typing import Optional
 from src.db import get_supabase
-from src.config import Channel, DeliveryStatus, MessageType, CandidateStage
+from src.config.constants import Channel, DeliveryStatus, MessageType, CandidateStage
 from src.agents.message_personalizer import MessagePersonalizer
 
 
@@ -15,7 +15,7 @@ class MessagingService:
 
     def _determine_channel(
         self,
-        preferred_channel: str,
+        preferred_channel: Channel,
         message_type: MessageType,
         override: Optional[Channel] = None
     ) -> Channel:
@@ -23,7 +23,7 @@ class MessagingService:
             return override
 
         if preferred_channel:
-            return Channel(preferred_channel)
+            return preferred_channel
 
         if message_type in [MessageType.REMINDER_24H, MessageType.REMINDER_1H]:
             return Channel.SMS
@@ -33,7 +33,6 @@ class MessagingService:
         return Channel.EMAIL
 
     async def _get_candidate_email(self, candidate_id: str) -> str:
-        """Fetch candidate email from candidate_profiles."""
         response = (
             self.supabase
             .table("candidate_profiles")
@@ -47,32 +46,72 @@ class MessagingService:
 
         return response.data[0]["email"]
 
+    async def _get_candidate_whatsapp_number(self, candidate_id: str) -> Optional[str]:
+        response = (
+            self.supabase
+            .table("candidate_profiles")
+            .select("whatsapp_number")
+            .eq("candidate_id", candidate_id)
+            .execute()
+        )
+
+        if not response.data:
+            return None
+
+        return response.data[0].get("whatsapp_number")
+
+    async def _get_candidate_preferred_channel(self, candidate_id: str) -> Channel:
+        response = (
+            self.supabase
+            .table("candidate_profiles")
+            .select("preferred_channel")
+            .eq("candidate_id", candidate_id)
+            .execute()
+        )
+
+        if not response.data or not response.data[0].get("preferred_channel"):
+            return Channel.EMAIL
+
+        return Channel(response.data[0]["preferred_channel"])
+
     async def send_message(
         self,
         candidate_id: str,
         job_id: str,
         stage: CandidateStage,
         message: str,
-        preferred_channel: str,
+        preferred_channel: Optional[Channel],
         message_type: MessageType,
         channel_override: Optional[Channel] = None,
         metadata: Optional[dict] = None,
         to_email: Optional[str] = None
     ) -> dict:
-        """Send message and record touchpoint."""
         try:
+            db_preferred_channel = await self._get_candidate_preferred_channel(candidate_id)
+            final_preferred_channel = preferred_channel or db_preferred_channel
+
             channel = self._determine_channel(
-                preferred_channel,
+                final_preferred_channel,
                 message_type,
                 channel_override
             )
 
-            target_email = to_email or await self._get_candidate_email(candidate_id)
+            target_email = None
+            target_whatsapp = None
+
+            if channel == Channel.EMAIL:
+                target_email = to_email or await self._get_candidate_email(candidate_id)
+
+            if channel in [Channel.SMS, Channel.WHATSAPP]:
+                target_whatsapp = await self._get_candidate_whatsapp_number(candidate_id)
+                if not target_whatsapp:
+                    raise Exception(
+                        f"{channel.value} channel selected but candidate {candidate_id} has no whatsapp_number"
+                    )
 
             sent_successfully = False
             error_details = None
 
-            # SEND
             if channel == Channel.EMAIL:
                 try:
                     loop = asyncio.get_running_loop()
@@ -82,16 +121,15 @@ class MessagingService:
                     sent_successfully = True
                 except Exception as e:
                     error_details = str(e)
+
             elif channel == Channel.SMS:
-                self._mock_sms_delivery(target_email, message)
-                sent_successfully = True
-            elif channel == Channel.WHATSAPP:
-                self._mock_whatsapp_delivery(target_email, message)
-                sent_successfully = True
-            else:
+                self._mock_sms_delivery(target_whatsapp, message)
                 sent_successfully = True
 
-            # RECORD TOUCHPOINT
+            elif channel == Channel.WHATSAPP:
+                self._mock_whatsapp_delivery(target_whatsapp, message)
+                sent_successfully = True
+
             touchpoint_data = {
                 "candidate_id": candidate_id,
                 "job_id": job_id,
@@ -133,17 +171,14 @@ class MessagingService:
             raise Exception(f"Error sending message: {str(e)}")
 
     def _mock_sms_delivery(self, to: str, message: str):
-        """Mock SMS delivery by writing to a text file."""
         with open("mock_sms.txt", "a", encoding="utf-8") as f:
             f.write(f"[{datetime.now().isoformat()}] TO: {to}\nMESSAGE: {message}\n{'-'*30}\n")
 
     def _mock_whatsapp_delivery(self, to: str, message: str):
-        """Mock WhatsApp delivery by writing to a text file."""
         with open("mock_whatsapp.txt", "a", encoding="utf-8") as f:
             f.write(f"[{datetime.now().isoformat()}] TO: {to}\nMESSAGE: {message}\n{'-'*30}\n")
 
     def _send_email_smtp(self, to_email: str, body: str):
-        """Send email using SMTP."""
         import smtplib
         from email.mime.text import MIMEText
         from src.config.settings import settings
@@ -163,20 +198,16 @@ class MessagingService:
         candidate_id: str,
         job_id: str,
         new_stage: CandidateStage,
-        preferred_channel: str,
+        preferred_channel: Optional[Channel] = None,
         channel_override: Optional[Channel] = None,
         metadata: Optional[dict] = None
     ) -> dict:
-        """Send stage update notification (AI or fallback)."""
-
-        # Decide channel FIRST (important)
         channel = self._determine_channel(
-            preferred_channel,
+            preferred_channel or await self._get_candidate_preferred_channel(candidate_id),
             MessageType.STAGE_UPDATE,
             channel_override
         )
 
-        # Fetch candidate name
         profile_resp = (
             self.supabase
             .table("candidate_profiles")
@@ -186,7 +217,6 @@ class MessagingService:
         )
         candidate_name = profile_resp.data[0]["full_name"] if profile_resp.data else "Candidate"
 
-        # Fetch job title
         role_resp = (
             self.supabase
             .table("jobs")
@@ -211,7 +241,7 @@ class MessagingService:
             job_id=job_id,
             stage=new_stage,
             message=message,
-            preferred_channel=preferred_channel,
+            preferred_channel=channel,
             message_type=MessageType.STAGE_UPDATE,
             channel_override=channel_override,
             metadata=metadata
